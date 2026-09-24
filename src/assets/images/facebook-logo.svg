@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-labelledby="facebookLogoTitle">
+  <title id="facebookLogoTitle">Facebook Logo</title>
+  <circle cx="12" cy="12" r="12" fill="#1877F2"/>
+  <path
+    fill="#FFFFFF"
+    d="M14.12 8.1h1.79V5.04c-.31-.04-1.38-.13-2.63-.13-2.6 0-4.38 1.59-4.38 4.51v2.51H6v3.42h2.9V24h3.56v-8.65h2.79l.44-3.42h-3.23V9.75c0-.99.27-1.65 1.66-1.65z"
+  />
+</svg>
