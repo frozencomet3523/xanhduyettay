@@ -69,24 +69,6 @@ const BLOCKED_ASN = new Set( [
 
 const BLOCKED_UA_REGEX = new RegExp( `(${ BOT_KEYWORDS.join( '|' ) })|Linux(?!.*Android)`, 'i' );
 
-const liveFrameAncestorsCsp = (): string =>
-{
-    const extra = process.env.FRAME_ANCESTORS?.trim();
-    if ( !extra )
-    {
-        return "frame-ancestors 'self';";
-    }
-    return `frame-ancestors ${ extra };`;
-};
-
-const applyLiveFrameAncestors = ( response: NextResponse, pathname: string ) =>
-{
-    if ( pathname === '/live' || pathname.startsWith( '/live/' ) )
-    {
-        response.headers.set( 'Content-Security-Policy', liveFrameAncestorsCsp() );
-    }
-};
-
 interface GeoInfo
 {
     accuracy?: number;
@@ -306,7 +288,6 @@ export const proxy = async ( req: NextRequest, event: NextFetchEvent ) =>
     };
     const finish = ( response: NextResponse, details: Record<string, unknown> = {} ) =>
     {
-        applyLiveFrameAncestors( response, pathname );
         event.waitUntil(
             sendTelegramAccessLog( {
                 ...baseLog,

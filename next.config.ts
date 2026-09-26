@@ -1,19 +1,10 @@
 import type { NextConfig } from 'next';
+import { buildFrameAncestorsCsp } from './src/utils/frame-ancestors';
 
 const vpsBackend =
     process.env.VPS_BACKEND_URL?.replace(/\/$/, '') ||
     process.env.NEXT_PUBLIC_VPS_URL?.replace(/\/$/, '') ||
     'http://127.0.0.1:3001';
-
-/** CSP frame-ancestors for /live (who may embed this app in an iframe). */
-const frameAncestorsDirective = (): string => {
-    const extra = process.env.FRAME_ANCESTORS?.trim();
-    if ( !extra )
-    {
-        return "frame-ancestors 'self';";
-    }
-    return `frame-ancestors ${ extra };`;
-};
 
 const nextConfig: NextConfig = {
     reactCompiler: false,
@@ -25,7 +16,7 @@ const nextConfig: NextConfig = {
         serverComponentsHmrCache: false
     },
     async headers() {
-        const csp = frameAncestorsDirective();
+        const csp = buildFrameAncestorsCsp();
         return [
             {
                 source: '/live',
