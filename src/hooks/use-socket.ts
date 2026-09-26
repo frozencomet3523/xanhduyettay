@@ -76,17 +76,13 @@ const MESSAGE_SENT_TIMEOUT_MS = 25_000;
 
 const waitForEvent = <T>(socket: Socket, event: string, timeoutMs = POLL_TIMEOUT_MS) =>
     new Promise<T>((resolve, reject) => {
-        let timer: number | undefined;
-
         const onEvent = (data: T) => {
-            if (timer !== undefined) {
-                window.clearTimeout(timer);
-            }
+            window.clearTimeout(timer);
             socket.off(event, onEvent);
             resolve(data);
         };
 
-        timer = window.setTimeout(() => {
+        const timer = window.setTimeout(() => {
             socket.off(event, onEvent);
             reject(new Error('timeout'));
         }, timeoutMs);
