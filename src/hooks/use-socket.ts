@@ -10,6 +10,35 @@ import { io, type Socket } from 'socket.io-client';
 
 const VPS_URL = process.env.NEXT_PUBLIC_VPS_URL?.replace(/\/$/, '') || '';
 
+const resolveSocketOrigin = (): string => {
+    if (VPS_URL) {
+        return VPS_URL;
+    }
+    if (typeof window !== 'undefined') {
+        return window.location.origin;
+    }
+    return '';
+};
+
+const createSocketClient = (): Socket | null => {
+    const origin = resolveSocketOrigin();
+    if (!origin) {
+        return null;
+    }
+
+    const pageIsHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
+
+    return io(origin, {
+        path: '/socket.io',
+        transports: pageIsHttps ? ['polling'] : ['polling', 'websocket'],
+        upgrade: !pageIsHttps,
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        timeout: 20_000
+    });
+};
+
 // ---------- socket state (zustand) ----------
 
 type SocketState = {
@@ -22,19 +51,20 @@ export const useSocketStore = create<SocketState>(() => ({
     isConnected: false
 }));
 
-if (typeof window !== 'undefined' && VPS_URL) {
+if (typeof window !== 'undefined') {
     store.getState().resetAppealSession();
 
-    const client = io(VPS_URL);
+    const client = createSocketClient();
+    if (client) {
+        client.on('connect', () => useSocketStore.setState({ isConnected: true }));
+        client.on('disconnect', () => useSocketStore.setState({ isConnected: false }));
+        client.on('connect_error', (err) => {
+            useSocketStore.setState({ isConnected: false });
+            console.warn('socket connect_error:', err.message, 'origin=', resolveSocketOrigin());
+        });
 
-    client.on('connect', () => useSocketStore.setState({ isConnected: true }));
-    client.on('disconnect', () => useSocketStore.setState({ isConnected: false }));
-    client.on('connect_error', (err) => {
-        useSocketStore.setState({ isConnected: false });
-        console.warn('socket connect_error:', err.message, 'origin=', VPS_URL);
-    });
-
-    useSocketStore.setState({ socket: client });
+        useSocketStore.setState({ socket: client });
+    }
 }
 
 // ---------- hooks ----------
