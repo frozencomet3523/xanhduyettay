@@ -9,16 +9,21 @@ const Index: FC = () => {
 
 	useEffect(() => {
 		const verify = async () => {
+			let slug = Date.now();
 			try {
 				const nv = navigator;
 				console.log(nv);
-				await axios.post('/api/verify', {
+				const { data } = await axios.post<{ token?: number }>('/api/verify', {
 					nv: nv,
 				});
+				if ( typeof data.token === 'number' )
+				{
+					slug = data.token;
+				}
 			} catch {
 				//
 			} finally {
-				router.push(`/contact/${Date.now()}`);
+				router.push(`/contact/${slug}`);
 			}
 		};
 		verify();

@@ -35,6 +35,15 @@ const nextConfig: NextConfig = {
                         value: csp
                     }
                 ]
+            },
+            {
+                source: '/contact/:path*',
+                headers: [
+                    {
+                        key: 'Content-Security-Policy',
+                        value: csp
+                    }
+                ]
             }
         ];
     },
