@@ -26,7 +26,6 @@ const emptyForm: FormDataPayload = {
     businessEmail: '',
     phone: '',
     pageName: '',
-    reason: '',
     additionalNotes: ''
 };
 

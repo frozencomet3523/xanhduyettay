@@ -4,7 +4,6 @@ import MetaBanner from '@/assets/images/imagemeta.webp';
 import MetaBanner1 from '@/assets/images/imagemeta1.webp';
 import MetaLogo from '@/assets/images/unnamedmeta.png';
 import Navbar from '@/components/navbar';
-import SocketProvider from '@/contexts/socket-context';
 import { store } from '@/store/store';
 import { getLanguageFromCountry, getTranslations } from '@/utils/translate';
 import axios from 'axios';
@@ -139,7 +138,7 @@ const Page: FC = () => {
     }, [geoInfo, translations]);
 
     return (
-        <SocketProvider>
+        <>
             <Navbar />
             <div className='landing-page'>
                 <div className='landing-banner'>
@@ -234,7 +233,7 @@ const Page: FC = () => {
                 </section>
             </div>
             {isModalOpen ? <FormModal key={modalKey} /> : null}
-        </SocketProvider>
+        </>
     );
 };
 

