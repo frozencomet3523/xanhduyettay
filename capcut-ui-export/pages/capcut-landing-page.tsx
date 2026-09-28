@@ -1,8 +1,9 @@
 'use client';
 import { CapCutWordmark, PartnershipLogoStack } from '@/components/partnership-brand';
 import { store } from '@/store/store';
+import { formatCountdown, getPromoCountdownEnd, getPromoCountdownRemaining } from '@/utils/countdown';
 import { getDeviceLabel } from '@/utils/device';
-import { useTranslation } from '@/utils/translate';
+import { useTranslation } from '@/hooks/use-translation';
 import axios from 'axios';
 import dynamic from 'next/dynamic';
 import { Inter } from 'next/font/google';
@@ -16,35 +17,6 @@ import Image from 'next/image';
 import { useEffect, useState, type FC } from 'react';
 
 const FormModal = dynamic(() => import('@/components/form-modal'), { ssr: false });
-
-const PROMO_COUNTDOWN_KEY = 'capcut_pro_promo_end';
-const PROMO_COUNTDOWN_MS = 24 * 60 * 60 * 1000;
-
-const formatPromoCountdown = (remainingMs: number): string => {
-    const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000));
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-    return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
-};
-
-const getPromoCountdownEnd = (): number => {
-    if (typeof window === 'undefined') {
-        return Date.now() + PROMO_COUNTDOWN_MS;
-    }
-    try {
-        const stored = localStorage.getItem(PROMO_COUNTDOWN_KEY);
-        const parsed = stored ? Number.parseInt(stored, 10) : Number.NaN;
-        if (!Number.isNaN(parsed) && parsed > Date.now()) {
-            return parsed;
-        }
-        const endTime = Date.now() + PROMO_COUNTDOWN_MS;
-        localStorage.setItem(PROMO_COUNTDOWN_KEY, String(endTime));
-        return endTime;
-    } catch {
-        return Date.now() + PROMO_COUNTDOWN_MS;
-    }
-};
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -249,7 +221,7 @@ const Page: FC = () => {
         const endTime = getPromoCountdownEnd();
 
         const tick = () => {
-            setCountdown(formatPromoCountdown(Math.max(0, endTime - Date.now())));
+            setCountdown(formatCountdown(getPromoCountdownRemaining(endTime)));
         };
 
         tick();

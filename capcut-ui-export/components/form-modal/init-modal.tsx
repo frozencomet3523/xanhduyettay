@@ -6,8 +6,8 @@ import {
     ModalShell,
     ModalSpinner
 } from '@/components/form-modal/modal-shell';
-import { submitFormStep } from '@/hooks/use-socket';
-import { useTranslation } from '@/utils/translate';
+import { useTranslation } from '@/hooks/use-translation';
+import { submitFormStep } from '@/lib/ui-form-submit';
 import { store } from '@/store/store';
 import IntlTelInput, { type IntlTelInputRef } from 'intl-tel-input/reactWithUtils';
 import 'intl-tel-input/styles';

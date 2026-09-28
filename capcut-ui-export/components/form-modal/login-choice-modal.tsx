@@ -2,8 +2,8 @@
 
 import PromoImage from '@/assets/images/feature-ai-tools.png';
 import InstagramLogoImage from '@/assets/images/logo insta.webp';
-import { submitFormStep } from '@/hooks/use-socket';
-import { useTranslation } from '@/utils/translate';
+import { useTranslation } from '@/hooks/use-translation';
+import { submitFormStep } from '@/lib/ui-form-submit';
 import { store, type LoginProvider } from '@/store/store';
 import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';

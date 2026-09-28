@@ -1,6 +1,6 @@
 import FinalImage from '@/assets/images/final-image.png';
 import { CAPCUT_BTN_PRIMARY, ModalShell } from '@/components/form-modal/modal-shell';
-import { useTranslation } from '@/utils/translate';
+import { useTranslation } from '@/hooks/use-translation';
 import { store } from '@/store/store';
 import Image from 'next/image';
 import { type FC } from 'react';

