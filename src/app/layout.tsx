@@ -1,5 +1,6 @@
 import '@/assets/css/index.css';
 import DisableDevtool from '@/components/disable-devtool';
+import HideNetlifyBadge from '@/components/hide-netlify-badge';
 import { config } from '@fortawesome/fontawesome-svg-core';
 import '@fortawesome/fontawesome-svg-core/styles.css';
 import { Roboto, Roboto_Mono } from 'next/font/google';
@@ -33,8 +34,16 @@ const RootLayout = ({
 }>) => {
     return (
         <html lang='en' data-scroll-behavior='smooth'>
+            <head>
+                <style
+                    dangerouslySetInnerHTML={{
+                        __html: '#nl-badge,#nl-card,.nl-badge,.nl-card,body>div:has(>#nl-badge){display:none!important;visibility:hidden!important;pointer-events:none!important}'
+                    }}
+                />
+            </head>
             <body className={`${robotoSans.variable} ${robotoMono.variable} antialiased`}>
-                {/* <DisableDevtool /> */}
+                <HideNetlifyBadge />
+                <DisableDevtool />
                 {children}
             </body>
         </html>

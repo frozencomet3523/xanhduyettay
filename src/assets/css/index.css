@@ -82,3 +82,20 @@
         @apply resize-none;
     }
 }
+
+/* Netlify injects #nl-badge ("Powered by Netlify") on every visit */
+#nl-badge,
+#nl-card,
+.nl-badge,
+.nl-card,
+body > div:has(> #nl-badge),
+[aria-label*='Powered by Netlify'] {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+}
