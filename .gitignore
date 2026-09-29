@@ -1,10 +1,11 @@
 .next
+.netlify
 node_modules
 
 backend/
-main.py
+# main.py
 scripts/deploy-vps.mjs
 
-index.html
-index.source.html
-ma hoa html.mjs
+
+# index.source.html
+# ma hoa html.mjs

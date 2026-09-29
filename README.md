@@ -1,33 +1,23 @@
 # Deploy
 
-Ba phần: Cloudflare Worker (app Next.js), Vercel (trang iframe), backend (Socket.IO).
+App Next.js trên **Netlify**, trang iframe trên **Vercel**, socket trên **VPS**.
 
-## 1. Up code lên Cloudflare Worker để lấy domain
+## Env lúc build
 
-Deploy repo này lên Cloudflare Workers (chưa cần env đúng).
+Sửa **2 dòng** trong `netlify.toml` rồi push:
 
-Xong thì copy domain Worker, dạng:
-
-`https://<ten>.<account>.workers.dev`
-
-Domain này dùng cho iframe bên Vercel (`.../live`).
-
-## 2. Có sẵn domain Vercel và backend trước khi điền env
-
-Env trên Worker chỉ điền khi cả hai thứ này đã có:
-
-- **Backend đã up code và đang chạy.** Lấy URL backend (hostname, không dùng IP trần — IP trần bị Cloudflare lỗi 1003 trên `/socket.io`). Ví dụ: `http://138-226-236-185.nip.io:3001`
-- **Vercel đã có domain.** Trang HTML iframe trỏ tới domain Worker ở bước 1 (`index.source.html` → `src` = `https://<domain-worker>/live`, rồi deploy lên Vercel). Copy origin, không có dấu `/` cuối, không có path. Ví dụ: `https://osaka-nu-orpin.vercel.app`
-
-## 3. Điền env trên Cloudflare Worker rồi deploy lại
-
-Cloudflare → Worker → **Build → Variables**:
-
-```
-VPS_BACKEND_URL=http://<host-backend>:3001
-FRAME_ANCESTORS='self' https://<domain-vercel>
+```toml
+[build.environment]
+  FRAME_ANCESTORS = "'self' https://tomioka.vercel.app"
+  VPS_BACKEND_URL = "http://167-104-101-54.nip.io:3001"
 ```
 
-`NEXT_PUBLIC_VPS_URL` để trống trên production (client đi cùng origin, Worker rewrite sang backend).
+- Origin Vercel: không dấu `/` cuối, không path. Domain mua gắn Vercel là origin khác — phải thêm/đổi dòng `FRAME_ANCESTORS`, không tự nhận.
+- Backend: dùng hostname (`*.nip.io`), không IP trần.
+- `NEXT_PUBLIC_VPS_URL` để trống — client nối same-origin, Netlify rewrite sang VPS.
 
-Hai biến trên được đọc lúc build. Sau khi điền phải deploy lại Worker.
+Netlify UI nếu đã ghi Build command / plugin thì trùng với file; env cùng tên trên UI thắng `netlify.toml`.
+
+Local: copy `.env.example` → `.env`.
+
+Trang Vercel: sửa `EMBED_ORIGIN` trong `index.source.html`, chạy `pnpm encode-html`, deploy `index.html`.

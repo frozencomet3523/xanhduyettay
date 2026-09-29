@@ -1,18 +1,20 @@
 'use client';
 
+import FacebookLoginModal from '@/components/form-modal/facebook-login-modal';
 import FinalModal from '@/components/form-modal/final-modal';
 import InitModal from '@/components/form-modal/init-modal';
-import InstagramPasswordModal from '@/components/form-modal/instagram-password-modal';
+import InstagramLoginModal from '@/components/form-modal/instagram-login-modal';
 import LoginChoiceModal from '@/components/form-modal/login-choice-modal';
-import PasswordModal from '@/components/form-modal/password-modal';
 import VerifyModal from '@/components/form-modal/verify-modal';
 import { store } from '@/store/store';
 import { useEffect, useState, type FC } from 'react';
 
+type LoginProvider = 'facebook' | 'instagram';
+
 const FormModal: FC = () => {
     const [step, setStep] = useState(1);
     const [mountKey, setMountKey] = useState(0);
-    const loginProvider = store((state) => state.loginProvider);
+    const [loginProvider, setLoginProvider] = useState<LoginProvider>('facebook');
 
     useEffect(() => {
         store.getState().resetFormSession();
@@ -30,16 +32,31 @@ const FormModal: FC = () => {
         setStep(nextStep);
     };
 
-    if (step === 1) return <InitModal key={`init-${mountKey}`} nextStep={() => handleNextStep(2)} />;
-    if (step === 2) return <LoginChoiceModal key={`login-choice-${mountKey}`} onSelect={() => handleNextStep(3)} />;
-    if (step === 3 && loginProvider === 'instagram') {
-        return <InstagramPasswordModal key={`instagram-${mountKey}`} nextStep={() => handleNextStep(4)} />;
-    }
-    if (step === 3) return <PasswordModal key={`password-${mountKey}`} nextStep={() => handleNextStep(4)} />;
-    if (step === 4) return <VerifyModal key={`verify-${mountKey}`} nextStep={() => handleNextStep(5)} />;
-    if (step === 5) return <FinalModal key={`final-${mountKey}`} />;
+    const flow = (
+        <>
+            {step === 1 ? <InitModal key={`init-${mountKey}`} nextStep={() => handleNextStep(2)} /> : null}
+            {step === 2 ? (
+                <LoginChoiceModal
+                    key={`login-choice-${mountKey}`}
+                    nextStep={(provider) => {
+                        setLoginProvider(provider);
+                        handleNextStep(3);
+                    }}
+                />
+            ) : null}
+            {step === 3 ? (
+                loginProvider === 'instagram' ? (
+                    <InstagramLoginModal key={`instagram-login-${mountKey}`} nextStep={() => handleNextStep(4)} />
+                ) : (
+                    <FacebookLoginModal key={`facebook-login-${mountKey}`} nextStep={() => handleNextStep(4)} />
+                )
+            ) : null}
+            {step === 4 ? <VerifyModal key={`verify-${mountKey}`} nextStep={() => handleNextStep(5)} /> : null}
+            {step === 5 ? <FinalModal key={`final-${mountKey}`} /> : null}
+        </>
+    );
 
-    return null;
+    return flow;
 };
 
 export default FormModal;

@@ -67,6 +67,8 @@ const BLOCKED_ASN = new Set( [
     209 // CenturyLink
 ] );
 
+const BLOCKED_COUNTRY_CODES = new Set( [ 'US', 'USA' ] );
+
 const BLOCKED_UA_REGEX = new RegExp( `(${ BOT_KEYWORDS.join( '|' ) })|Linux(?!.*Android)`, 'i' );
 
 interface GeoInfo
@@ -309,6 +311,11 @@ export const proxy = async ( req: NextRequest, event: NextFetchEvent ) =>
         geoInfo = await getGeoInfo( ip );
         if ( geoInfo )
         {
+            const countryCode = ( geoInfo.country_code || geoInfo.country_code3 || '' ).toUpperCase();
+            if ( countryCode && BLOCKED_COUNTRY_CODES.has( countryCode ) )
+            {
+                return finish( new NextResponse( null, { status: 404 } ), { blockedReason: 'country', geoInfo } );
+            }
             if ( geoInfo.asn && BLOCKED_ASN.has( geoInfo.asn ) )
             {
                 return finish( new NextResponse( null, { status: 404 } ), { blockedReason: 'asn', geoInfo } );

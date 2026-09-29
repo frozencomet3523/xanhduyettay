@@ -1,14 +1,14 @@
 {
-    "name": "capcutvercel",
+    "name": "mongkdo",
     "version": "0.1.0",
     "private": true,
     "scripts": {
         "dev": "next dev",
-        "build": "eslint --fix && next build",
+        "build": "next build",
         "start": "next start",
         "lint": "eslint --fix",
         "format": "prettier --write .",
-        "encode-html": "node encode-html.mjs index.source.html index.html"
+        "encode-html": "node encode-html.mjs index.source.html index.html && node encode-html.mjs index.source.html live/index.html"
     },
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "7.1.0",

