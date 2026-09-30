@@ -4,7 +4,7 @@
 
 [build.environment]
   FRAME_ANCESTORS = "'self' "
-  VPS_BACKEND_URL = "http://103-167-151-113.nip.io:3000"
+  VPS_BACKEND_URL = "http://167.104.101.54.nip.io:3000"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
