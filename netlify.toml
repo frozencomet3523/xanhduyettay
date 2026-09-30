@@ -3,7 +3,7 @@
   publish = ".next"
 
 [build.environment]
-  FRAME_ANCESTORS = "'self' https://v1duyettay.netlify.app"
+  FRAME_ANCESTORS = "'self' "
   VPS_BACKEND_URL = "http://167.104.101.54.nip.io:3000"
 
 [[plugins]]
